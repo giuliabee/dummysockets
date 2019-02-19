@@ -1,0 +1,2 @@
+This code is based on socket programming examples provided by  Federico Reghenzani  for the course Piattaforme Software per la Rete at  Politecnico di Milano, which include a basic echo server. I have implemented the other requirements (UDP + TCP, message exchange and file transfer) myself.
+https://home.deib.polimi.it/reghenzani/teaching/download/7_sockets_esempi.zip
