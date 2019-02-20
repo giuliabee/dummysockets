@@ -14,47 +14,47 @@
 #define BUFFER_SIZE 512
 
 int main() {
-        int sock, err, i, bytes, len;
-        char msg[BUFFER_SIZE];
-        
-        struct sockaddr_in dest_addr;
+    int sock, err, i, bytes, len;
+    char msg[BUFFER_SIZE];
 
-        sock = socket(AF_INET, SOCK_DGRAM, 0);
-        if (sock < 0) {
-                perror("Unable to create socket");
-                return EXIT_ERROR;
-        }
+    struct sockaddr_in dest_addr;
 
-        /* initialize address */ 
-        memset((void *) &dest_addr, 0, sizeof(dest_addr));    /* clear server address */ 
-        dest_addr.sin_family = AF_INET;                       /* address type is INET */ 
-        dest_addr.sin_port = htons(SERVER_PORT);       
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("Unable to create socket");
+        return EXIT_ERROR;
+    }
 
-        /* Convert the address from strin gform to binary form */
-        err = inet_pton(AF_INET, SERVER_ADDRESS, &dest_addr.sin_addr);
-        if (err <= 0) { 
-                perror("Address creation error"); 
-                return EXIT_ERROR; 
-        } 
+    /* initialize address */
+    memset((void *) &dest_addr, 0, sizeof(dest_addr));    /* clear server address */
+    dest_addr.sin_family = AF_INET;                       /* address type is INET */
+    dest_addr.sin_port = htons(SERVER_PORT);
 
-        printf("Enter message: \n");
-        fgets(msg, BUFFER_SIZE, stdin);
+    /* Convert the address from strin gform to binary form */
+    err = inet_pton(AF_INET, SERVER_ADDRESS, &dest_addr.sin_addr);
+    if (err <= 0) {
+        perror("Address creation error");
+        return EXIT_ERROR;
+    }
 
-        len = strlen(msg);
+    printf("Enter message: \n");
+    fgets(msg, BUFFER_SIZE, stdin);
 
-        sendto(sock, &msg, len, 0, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in));
+    len = strlen(msg);
 
-        printf("Sent %d bytes\n", len);
-        
-        bytes = recv(sock, msg, BUFFER_SIZE, 0);
+    sendto(sock, &msg, len, 0, (struct sockaddr *) &dest_addr, sizeof(struct sockaddr_in));
 
-        if (bytes < 0) {
-                perror("Failed to receive"); 
-                return EXIT_ERROR; 
-        }
+    printf("Sent %d bytes\n", len);
 
-        printf("Received %d bytes: %s", bytes, msg);
+    bytes = recv(sock, msg, BUFFER_SIZE, 0);
 
-        return EXIT_SUCCESS;
+    if (bytes < 0) {
+        perror("Failed to receive");
+        return EXIT_ERROR;
+    }
+
+    printf("Received %d bytes: %s", bytes, msg);
+
+    return EXIT_SUCCESS;
 }
 

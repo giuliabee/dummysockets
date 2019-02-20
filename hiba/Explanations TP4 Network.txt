@@ -1,0 +1,16 @@
+﻿Rendu TP4 Network programming:
+//Prérequis: si vous êtes sur Windows comme moi, ne pas oublier d'ajouter dans les settings le link -lws2_32 (dans CodeBlocks il faut aller dans Settings<Compiler...<Link Options)
+1 & 2) Pour l'echo server, il faut lancer SocketProg en serveur (en premier) puis Network en client (deuxième)
+3) Pour envoyer le message "Bonjour" en UDP, il faut lancer les deux fichiers Sendmsg (en premier) et Receivemsg (en 2e)
+//Pour les prochaines questions, il faut Lancer en premier les fichiers receive puis les send.
+4) Pour connecter le client et le serveur, j'ai choisi un protocol de communication UDP; il faut donc lancer les fichiers UDPreceivefrom et UDPsendto
+5) Pour envoyer un fichier via UDP, il faut lancer les programmes UDPSendFile et UDPReceiveFile
+6) Pour envoyer un fichier via TCP, il faut lancer les programmes TCPSendFile et TCPReceiveFile
+
+//Translation
+WARNING: if you run it in windows, don't forget to add the library -lws2_32 in the settings (in CodeBlocks Settings<Compiler...<Link Options, in CodeLite right click on the file)
+1&2) First launch SocketProg then Network (directories)
+3) I'm using UDP to send a random message. First launch sendmsg then receivemsg
+4) To connect each other, i used UDP. First start UDPreceivefrom then UDPsendto
+5) To send a file by using UDP, first launch UDPSendFile then UDPReceiveFile
+6) To send a file by using TCP, first launch TCPSendFile then TCPReceiveFile
