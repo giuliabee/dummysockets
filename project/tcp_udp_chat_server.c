@@ -1,18 +1,30 @@
-#include <sys/types.h>  /* for constants (e.g. AF_INET) */
-#include <sys/socket.h>        /* for socket(), send(), connect(), recv(), ... */
+#if defined (WIN32)
+    #include <winsock2.h>
+    typedef int socklen_t;
+#elif defined (linux)
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    #include <arpa/inet.h>
+    #define closesocket(s) close(s)
+    typedef int SOCKET;
+    typedef struct sockaddr_in SOCKADDR_IN;
+    typedef struct sockaddr SOCKADDR;
+#endif
 
-#include <arpa/inet.h>        /* for inet_pton(), htons() */
-#include <stdio.h>        /* for snprintf(), printf() */
-#include <string.h>        /* for memset(), strlen() */
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <signal.h>
+void cleanExit(){exit(0);}
 
-#define EXIT_SUCCESS 0
-#define EXIT_ERROR   1
+#define EXIT_SUCCESS    0
+#define EXIT_ERROR      1
 
-#define EXIT_NOTIFICATION "close\n"
+#define SERVER_PORT 12345
+#define BUFFER_SIZE 280
 
-#define SERVER_PORT    12345
+#define EXIT_NOTIFICATION   "close\n"
 
-#define BUFFER_SIZE 512
 
 int main() {
     int listen_sock, err, i, bytes, len, client_sock, client_addr_size;
@@ -21,6 +33,9 @@ int main() {
     struct sockaddr_in serv_addr, client_addr;
 
     pid_t child;
+
+    signal(SIGTERM, cleanExit);
+    signal(SIGINT, cleanExit);
 
     child = fork();
 

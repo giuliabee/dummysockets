@@ -1,25 +1,39 @@
-#include <sys/types.h>  /* for constants (e.g. AF_INET) */
-#include <sys/socket.h>        /* for socket(), send(), connect(), recv(), ... */
+#if defined (WIN32)
+#include <winsock2.h>
+    typedef int socklen_t;
+#elif defined (linux)
+#include <sys/types.h>
+    #include <sys/socket.h>
+    #include <arpa/inet.h>
+    #define closesocket(s) close(s)
+    typedef int SOCKET;
+    typedef struct sockaddr_in SOCKADDR_IN;
+    typedef struct sockaddr SOCKADDR;
+#endif
 
-#include <arpa/inet.h>        /* for inet_pton(), htons() */
-#include <stdio.h>        /* for snprintf(), printf() */
-#include <string.h>        /* for memset(), strlen() */
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <signal.h>
+void cleanExit(){exit(0);}
 
-#define EXIT_SUCCESS 0
-#define EXIT_ERROR   1
-
-#define EXIT_NOTIFICATION "close\n"
+#define EXIT_SUCCESS    0
+#define EXIT_ERROR      1
 
 #define SERVER_ADDRESS "127.0.0.1"
-#define SERVER_PORT    12345
+#define SERVER_PORT 12345
+#define BUFFER_SIZE 280
 
-#define BUFFER_SIZE 512
+#define EXIT_NOTIFICATION   "close\n"
 
 int main() {
     int sock, err, i, bytes, len;
     char msg[BUFFER_SIZE];
 
     struct sockaddr_in dest_addr;
+
+    signal(SIGTERM, cleanExit);
+    signal(SIGINT, cleanExit);
 
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
