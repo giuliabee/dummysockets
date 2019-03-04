@@ -1,21 +1,12 @@
-#if defined (WIN32)
-    #include <winsock2.h>
-    typedef int socklen_t;
-#elif defined (linux)
-    #include <sys/types.h>
-    #include <sys/socket.h>
-    #include <arpa/inet.h>
-    #define closesocket(s) close(s)
-    typedef int SOCKET;
-    typedef struct sockaddr_in SOCKADDR_IN;
-    typedef struct sockaddr SOCKADDR;
-#endif
-
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
-void cleanExit(){exit(0);}
+
+void cleanExit() { exit(0); }
 
 #define EXIT_SUCCESS    0
 #define EXIT_ERROR      1
@@ -25,12 +16,17 @@ void cleanExit(){exit(0);}
 
 #define EXIT_NOTIFICATION   "close\n"
 
+#define closesocket(s) close(s)
+typedef int SOCKET;
+typedef struct sockaddr_in SOCKADDR_IN;
+typedef struct sockaddr SOCKADDR;
+
 
 int main() {
     int listen_sock, err, i, bytes, len, client_sock, client_addr_size;
     char msg[BUFFER_SIZE];
 
-    struct sockaddr_in serv_addr, client_addr;
+    struct sockaddr_in server_addr, client_addr;
 
     pid_t child;
 
@@ -38,6 +34,7 @@ int main() {
     signal(SIGINT, cleanExit);
 
     child = fork();
+
 
     if (child == 0) {
 
@@ -50,13 +47,13 @@ int main() {
         }
 
         /* initialize address */
-        memset((void *) &serv_addr, 0, sizeof(serv_addr));    /* clear server address */
-        serv_addr.sin_family = AF_INET;                       /* address type is INET */
-        serv_addr.sin_port = htons(SERVER_PORT);
-        serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        memset((void *) &server_addr, 0, sizeof(server_addr));    /* clear server address */
+        server_addr.sin_family = AF_INET;                       /* address type is INET */
+        server_addr.sin_port = htons(SERVER_PORT);
+        server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
         /* Bind the port number to my process */
-        err = bind(listen_sock, (struct sockaddr *) &serv_addr, sizeof(struct sockaddr_in));
+        err = bind(listen_sock, (struct sockaddr *) &server_addr, sizeof(struct sockaddr_in));
         if (err < 0) {
             printf("Unable to bind udp socket\n");
             return EXIT_ERROR;
@@ -108,13 +105,13 @@ int main() {
     }
 
     /* initialize address */
-    memset((void *) &serv_addr, 0, sizeof(serv_addr));    /* clear server address */
-    serv_addr.sin_family = AF_INET;                       /* address type is INET */
-    serv_addr.sin_port = htons(SERVER_PORT);
-    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    memset((void *) &server_addr, 0, sizeof(server_addr));    /* clear server address */
+    server_addr.sin_family = AF_INET;                       /* address type is INET */
+    server_addr.sin_port = htons(SERVER_PORT);
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     /* Bind the port number to my process */
-    err = bind(listen_sock, (struct sockaddr *) &serv_addr, sizeof(struct sockaddr_in));
+    err = bind(listen_sock, (struct sockaddr *) &server_addr, sizeof(struct sockaddr_in));
     if (err < 0) {
         perror("Unable to bind tcp socket\n");
         return EXIT_ERROR;
