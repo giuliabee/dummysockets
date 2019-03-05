@@ -84,6 +84,7 @@ int main() {
     }
 }
 
+#if defined (WIN32)
 //from https://stackoverflow.com/questions/15660203/inet-pton-identifier-not-found
 int inet_pton(int af, const char *src, void *dst) {
     struct sockaddr_storage ss;
@@ -130,3 +131,4 @@ const char *inet_ntop(int af, const void *src, char *dst, socklen_t size) {
     return (WSAAddressToString((struct sockaddr *) &ss, sizeof(ss), NULL, dst, &s) == 0) ?
            dst : NULL;
 }
+#endif
