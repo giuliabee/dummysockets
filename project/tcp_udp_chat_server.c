@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #define EXIT_SUCCESS    0
 #define EXIT_ERROR      1
@@ -16,34 +17,32 @@
 
 #define EXIT_NOTIFICATION   "close\n"
 
-void *serve_udp_client(void *client_sock) {
-    int client_addr_size, sock, bytes, len, err;
+typedef struct Request_s {
+    int sock;
+    socklen_t fromlen;
+    struct sockaddr_in from;
+} Request;
+
+void *serve_udp_client(void *req) {
+    int sock, err;
+    size_t len;
+    ssize_t bytes;
 
     char msg[BUFFER_SIZE];
 
     struct sockaddr_in client_addr;
 
-    sock = (long) client_sock;
+    Request *request = (Request *) req;
 
-    client_addr_size = sizeof(struct sockaddr_in);
+    sock = request->sock;
 
     while (1) {
-        bytes = recvfrom(sock, &msg, BUFFER_SIZE, 0, (struct sockaddr *) &client_addr, &client_addr_size);
-
-        if (bytes <= 0) {
-            /* Error or connection closed */
-            break;
-        }
-
-        printf("Received %d bytes from udp client %d\n", bytes, sock);
-        printf("%s", msg);
-
         printf("Enter message for udp client %d (type 'close' to end communication):\n", sock);
         fgets(msg, BUFFER_SIZE, stdin);
 
         len = strlen(msg);
 
-        bytes = sendto(sock, &msg, len, 0, (struct sockaddr *) &client_addr, client_addr_size);
+        bytes = sendto(sock, &msg, len, 0, (struct sockaddr *) &request->from, request->fromlen);
         printf("Sent %d bytes to udp client %d\n", bytes, sock);
 
         if (bytes <= 0) {
@@ -57,6 +56,16 @@ void *serve_udp_client(void *client_sock) {
             printf("Ending udp communication with client %d\n", sock);
             return EXIT_SUCCESS;
         }
+
+        bytes = recvfrom(sock, &msg, BUFFER_SIZE, 0, (struct sockaddr *) &request->from, &request->fromlen);
+
+        if (bytes <= 0) {
+            /* Error or connection closed */
+            break;
+        }
+
+        printf("Received %d bytes from udp client %d\n", bytes, sock);
+        printf("%s", msg);
     }
 }
 
@@ -107,11 +116,9 @@ void *serve_tcp_client(void *client_sock) {
 }
 
 int main() {
-    int listen_sock, client_sock, client_addr_size, err, i;
+    int listen_sock, client_sock, client_addr_size, bytes, err, i;
 
     struct sockaddr_in server_addr, client_addr;
-
-    pthread_t thread;
 
     pid_t child;
 
@@ -119,8 +126,10 @@ int main() {
 
 
     if (child == 0) {
-
         /***** udp *****/
+        pthread_t threads[NUM_THREADS];
+        char msg[BUFFER_SIZE];
+
 
         client_sock = socket(AF_INET, SOCK_DGRAM, 0);
         if (client_sock < 0) {
@@ -141,15 +150,32 @@ int main() {
             return EXIT_ERROR;
         }
 
-        while (1) {
+        for (i = 0; i < NUM_THREADS; i++) {
+
+            struct Request_s *request = (struct Request_s *) malloc(sizeof(Request));
+            request->sock = client_sock;
+            request->fromlen = sizeof(struct sockaddr_in);
+
             printf("Serving new udp client\n");
 
-            pthread_create(&thread, NULL, serve_udp_client, (void *) client_sock);
+            bytes = recvfrom(client_sock, &msg, BUFFER_SIZE, 0, (struct sockaddr *) &request->from, &request->fromlen);
+
+            if (bytes <= 0) {
+                /* Error or connection closed */
+                break;
+            }
+
+            printf("Received %d bytes from udp client %d\n", bytes, client_sock);
+            printf("%s", msg);
+
+            pthread_create(&threads[i], NULL, serve_udp_client, (void *) request);
         }
 
     } else {
 
         /***** tcp *****/
+
+        pthread_t thread;
 
         listen_sock = socket(AF_INET, SOCK_STREAM, 0);
         if (listen_sock < 0) {
@@ -195,4 +221,3 @@ int main() {
 
     }
 }
-
