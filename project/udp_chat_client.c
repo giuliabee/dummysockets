@@ -32,6 +32,19 @@
   typedef struct sockaddr SOCKADDR;
 #endif
 
+void ListCommandLines(){
+    printf("exit\n");
+    printf("help\n");
+    printf("listu\n");
+    printf("listf\n");
+    printf("trfD\n");
+    printf("trfU\n");
+    printf("private\n");
+    printf("public\n");
+    printf("ring\n");
+    printf("original\n");
+    printf("logs\n");
+}
 
 void cleanExit() { exit(0); }
 

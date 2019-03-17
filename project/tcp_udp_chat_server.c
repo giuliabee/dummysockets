@@ -28,7 +28,7 @@
 #define EXIT_ERROR      1
 
 #define  PORT_NUM    6069           // Arbitrary port number for the server
-#define  SIZE        256            // Buffer size
+#define  SIZE        280            // Buffer size
 #define  RECV_FILE_TCP  "recvFileTcp.dat"  // File name of received file
 #define  PORT_NUM_UDP     6009          // Arbitrary port number for the server
 #define  RECV_FILE_UDP  "recvFileUdp.dat"  // File name of received file
@@ -206,7 +206,10 @@ int Chat(){
           printf("Received %d bytes from udp client %d\n", bytes, client_sock);
           printf("%s", msg);
 
+
          pthread_create(&threads[i], NULL, serve_udp_client, (void *) request);
+
+
       }
 
   } else {

@@ -31,7 +31,7 @@
 void cleanExit() { exit(0); }
 
 #define  PORT_NUM    6069   // Port number used at the server
-#define  SIZE        256    // Buffer size
+#define  SIZE        280    // Buffer size
 
 #define EXIT_SUCCESS    0
 #define EXIT_ERROR      1
@@ -45,8 +45,22 @@ void cleanExit() { exit(0); }
 int sendFile(char *fileName, char *destIpAddr, int destPortNum, int options);
 
 int main() {
-Chat();
+//Chat();
 //TransferFile();
+}
+
+void ListCommandLines(){
+    printf("exit\n");
+    printf("help\n");
+    printf("listu\n");
+    printf("listf\n");
+    printf("trfD\n");
+    printf("trfU\n");
+    printf("private\n");
+    printf("public\n");
+    printf("ring\n");
+    printf("original\n");
+    printf("logs\n");
 }
 
 int TransferFile(int argc, char *argv[]){
@@ -113,6 +127,7 @@ int Chat(){
 
   /* We are now connected */
   while (-1) {
+      ListCommandLines();
       printf("Enter message: \n");
 
       fgets(msg, BUFFER_SIZE, stdin);
@@ -127,6 +142,9 @@ int Chat(){
       }
 
       printf("Sent %d bytes\n", bytes);
+
+
+    //  action(sock);
 
       bytes = recv(sock, msg, BUFFER_SIZE, 0);
 
@@ -145,6 +163,54 @@ int Chat(){
       }
   }
 }
+/*
+void action(int msg){
+  if(strncmp("exit", msg, 4) == 0)
+  {
+    printf("test");
+    exit(EXIT_SUCCESS);
+  }
+  else if(strncmp("help", msg, 4) == 0)
+		{
+            send(msg, ListCommandLines(), sizeof(BUFFER_SIZE), 0);
+        }
+
+        else if(strncmp("listf", BUFFER_SIZE, 5) == 0)
+		{
+            send(msg,"listf", sizeof(BUFFER_SIZE), 0);
+        }
+
+        else if(strncmp("trfd", BUFFER_SIZE, 4) == 0)
+		{
+            send(msg,"trfd", sizeof(BUFFER_SIZE), 0);
+        }
+
+        else if(strncmp("trfu", buff, 4) == 0)
+		{
+            send(msg, "trfu", sizeof(BUFFER_SIZE), 0);
+        }
+
+        else if(strncmp("private", BUFFER_SIZE, 7) == 0)
+		{
+            k = 1;
+            send(msg, "private", sizeof(BUFFER_SIZE, 0);
+        }
+
+        else if(strncmp("public", buff, 6) == 0)
+		{
+            k = 1;
+            send(msg, "public", sizeof(BUFFER_SIZE), 0);
+        }
+
+        else if (strncmp("ring", BUFFER_SIZE, 4) == 0)
+		{
+            k = 1;
+            send(msg, "ring", sizeof(BUFFER);
+          }
+        }
+        */
+
+
 
 int sendFile(char *fileName, char *destIpAddr, int destPortNum, int options)
 {
