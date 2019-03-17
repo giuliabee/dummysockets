@@ -1,21 +1,23 @@
+#include "sw.h"
 #define  WIN               // WIN for Winsock and BSD for BSD sockets
-//----- Include files ---------------------------------------------------------
+
 #include <stdio.h>          // Needed for printf()
 #include <string.h>         // Needed for memcpy() and strcpy()
 #include <stdlib.h>         // Needed for exit()
 #include <fcntl.h>          // Needed for file i/o constants
 #include <ctype.h>
-#ifdef _WIN
+#ifdef _WIN      // Needed for file i/o constants
+  #include <ws2tcpip.h>
   #include <windows.h>      // Needed for all Winsock stuff
   #include <io.h>           // Needed for open(), close(), and eof()
   #include <sys\stat.h>     // Needed for file i/o constants
 #else
-  #include <sys/types.h>    // Needed for sockets stuff
-  #include <netinet/in.h>   // Needed for sockets stuff
-  #include <sys/socket.h>   // Needed for sockets stuff
-  #include <arpa/inet.h>    // Needed for sockets stuff
-  #include <fcntl.h>        // Needed for sockets stuff
-  #include <netdb.h>        // Needed for sockets stuff
+  #include <sys/types.h>
+  #include <netinet/in.h>
+  #include <sys/socket.h>
+  #include <arpa/inet.h>
+  #include <fcntl.h>
+  #include <netdb.h>
   #include <sys/io.h>       // Needed for open(), close(), and eof()
   #include <sys/stat.h>     // Needed for file i/o constants
   #include <pthread.h>
@@ -27,7 +29,9 @@
 
 #define  PORT_NUM    6069           // Arbitrary port number for the server
 #define  SIZE        256            // Buffer size
-#define  RECV_FILE  "recvFile.dat"  // File name of received file
+#define  RECV_FILE_TCP  "recvFileTcp.dat"  // File name of received file
+#define  PORT_NUM_UDP     6009          // Arbitrary port number for the server
+#define  RECV_FILE_UDP  "recvFileUdp.dat"  // File name of received file
 
 #define SERVER_PORT 12345
 #define BUFFER_SIZE 280
@@ -41,6 +45,15 @@ typedef struct Request_s {
     socklen_t fromlen;
     struct sockaddr_in from;
 } Request;
+
+typedef struct//For UDP Send file
+{
+    int socket;
+    struct sockaddr *addr;
+    socklen_t addr_len;
+} transport_info_t;
+
+
 
 void *serve_udp_client(void *req) {
     int sock, err;
@@ -136,7 +149,8 @@ void *serve_tcp_client(void *client_sock) {
 
 int main() {
 //Chat();
-Receivingfile();
+//ReceivingfileTCP();
+ReceivingfileUDP();
 }
 
 int Chat(){
@@ -248,7 +262,7 @@ int Chat(){
 
 int recvFile(char *fileName, int portNum, int maxSize, int options);
 
-int Receivingfile(){
+int ReceivingfileTCP(){
   int                  portNum;         // Port number to receive on
   int                  maxSize;         // Maximum allowed size of file
   int                  timeOut;         // Timeout in seconds
@@ -262,7 +276,7 @@ int Receivingfile(){
 
   // Receive the file
   printf("Starting file reception... \n");
-  retcode = recvFile(RECV_FILE, portNum, maxSize, options);
+  retcode = recvFile(RECV_FILE_TCP, portNum, maxSize, options);
   printf("File received \n");
 
   // Return
@@ -332,7 +346,7 @@ int recvFile(char *fileName, int portNum, int maxSize, int options)
   //printf(fh);
   if (fh == -1)
   {
-     printf("  *** ERROR - unable to create '%s' \n", RECV_FILE);
+     printf("  *** ERROR - unable to create '%s' \n", RECV_FILE_TCP);
      exit(1);
   }
 
@@ -387,5 +401,152 @@ int recvFile(char *fileName, int portNum, int maxSize, int options)
 #endif
 
   // Return zero
+  return(0);
+}
+
+
+
+//For UDP SEND AND RECEIVE FILE ALL THESE FUNCTIONS
+
+static int receive_data(void *buffer, int buffer_size, void *ctx)
+{
+    int length;
+    transport_info_t *transport = (transport_info_t *)ctx;
+
+		length = recvfrom(transport->socket, buffer, buffer_size, 0, transport->addr,	&(transport->addr_len));
+    return length;
+}
+
+static int send_data(void *data, int data_len, void *ctx)
+{
+    int ret_code;
+    transport_info_t *transport = (transport_info_t *)ctx;
+
+		ret_code = sendto(transport->socket, data, data_len, 0, transport->addr,	transport->addr_len);
+
+
+
+    return ret_code;
+}
+
+static int write_data_to_file(void *data, int data_len, void *ctx)
+{
+    int length, fd = *(int *)ctx;
+
+    length = write(fd, data, data_len);
+
+    return length;
+}
+
+//----- Prototypes ------------------------------------------------------------
+int recvFileUDP(char *fileName, int portNum);
+
+//===== Main program ==========================================================
+int ReceivingfileUDP()
+{
+  int                  portNum;         // Port number to receive on
+  int                  retcode;         // Return code
+
+  // Initialize parameters
+  portNum= PORT_NUM_UDP;
+
+  // Receive the file
+  printf("Starting file reception... \n");
+  retcode = recvFileUDP(RECV_FILE_UDP, portNum);
+  if (retcode)
+      return -1;
+  printf("File received");
+
+  // Return
+  return(0);
+}
+
+int recvFileUDP(char *fileName, int portNum)
+{
+#ifdef _WIN
+  WORD wVersionRequested = MAKEWORD(1,1);       //  for WSA functions
+  WSADATA wsaData;                              //  for WSA functions
+#endif
+  int                  server_s;        // Welcome socket descriptor
+  struct sockaddr_in   server_addr;     // Server Internet address
+  int                  fh;              // File handle
+  int                  retcode;         // Return code
+  transport_info_t transport = {};
+
+#ifdef _WIN
+  // This  initializes winsock
+  WSAStartup(wVersionRequested, &wsaData);
+#endif
+
+  // Create a socket
+  server_s = socket(AF_INET, SOCK_DGRAM, 0);
+  if (server_s < 0)
+  {
+    printf("*** ERROR - socket() failed \n");
+    exit(-1);
+  }
+
+  // Fill-in my socket's address information
+  server_addr.sin_family = AF_INET;                 // Address family to use
+  server_addr.sin_port = htons(PORT_NUM_UDP);           // Port number to use
+  server_addr.sin_addr.s_addr = htonl(INADDR_ANY);  // Listen on any IP address
+
+  transport.addr = (struct sockaddr *)&server_addr;
+  transport.addr_len = sizeof(struct sockaddr);
+  transport.socket = server_s;
+
+  retcode = bind(server_s, (struct sockaddr *)&server_addr,
+    sizeof(server_addr));
+  if (retcode < 0)
+  {
+    printf("*** ERROR - bind() failed \n");
+    exit(-1);
+  }
+
+  // Open IN_FILE for file to write
+  #ifdef _WIN
+    fh = open(fileName, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, S_IREAD | S_IWRITE);
+  #else
+    fh = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, S_IREAD | S_IWRITE);
+  #endif
+  if (fh == -1)
+  {
+     printf("  *** ERROR - unable to create '%s' \n", RECV_FILE_UDP);
+     exit(1);
+  }
+
+  sw_ctx_t *sw_ctx = sw_init(10);
+
+  sw_set_cb(sw_ctx, SW_RECV_CB, receive_data, &transport);
+  sw_set_cb(sw_ctx, SW_SEND_CB, send_data, &transport);
+  sw_set_cb(sw_ctx, SW_WRITE_DATA_CB, write_data_to_file, &fh);
+
+  sw_recv_file(sw_ctx);
+
+  sw_deinit(sw_ctx);
+  // >>> Step #6 <<<
+  // Close all open sockets
+#ifdef _WIN
+  retcode = closesocket(server_s);
+  if (retcode < 0)
+  {
+    printf("*** ERROR - closesocket() failed \n");
+    exit(-1);
+  }
+#else
+  retcode = close(server_s);
+  if (retcode < 0)
+  {
+    printf("*** ERROR - close() failed \n");
+    exit(-1);
+  }
+#endif
+
+#ifdef _WIN
+  // This  cleans-up winsock
+  WSACleanup();
+#endif
+
+  // Return zero and terminate
   return(0);
 }

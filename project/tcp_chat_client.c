@@ -45,8 +45,8 @@ void cleanExit() { exit(0); }
 int sendFile(char *fileName, char *destIpAddr, int destPortNum, int options);
 
 int main() {
-//Chat();
-TransferFile();
+Chat();
+//TransferFile();
 }
 
 int TransferFile(int argc, char *argv[]){

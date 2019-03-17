@@ -1,23 +1,42 @@
-#if defined (WIN32)
-    #include <winsock2.h>
-    #include <ws2tcpip.h>
-    typedef int socklen_t;
-#elif defined (linux)
-    #include <sys/types.h>
-    #include <sys/socket.h>
-    #include <arpa/inet.h>
-    #define closesocket(s) close(s)
-    typedef int SOCKET;
-    typedef struct sockaddr_in SOCKADDR_IN;
-    typedef struct sockaddr SOCKADDR;
+#include "sw.h"
+#define  WIN               // WIN for Winsock and BSD for BSD sockets
+
+#include <stdio.h>          // Needed for printf()
+#include <string.h>         // Needed for memcpy() and strcpy()
+#include <stdlib.h>         // Needed for exit()
+#include <fcntl.h>          // Needed for file i/o constants
+#include <string.h>
+#include <ctype.h>
+#include <signal.h>
+#ifdef _WIN
+  #include <windows.h>      // Needed for all Winsock stuff
+  #include <io.h>             // Needed for open(), close(), and eof()
+  #include <sys\stat.h>       // Needed for file i/o constants
+  #include <ws2tcpip.h>
+  #include <winsock2.h>
+  typedef int socklen_t;
+#else
+  #include <sys/types.h>
+  #include <netinet/in.h>
+  #include <sys/socket.h>
+  #include <arpa/inet.h>
+  #include <fcntl.h>
+  #include <netdb.h>
+  #include <sys/io.h>       // Needed for open(), close(), and eof()
+  #include <sys/stat.h>     // Needed for file i/o constants
+  #include <unistd.h>
+  #include <sys/select.h>
+  #define closesocket(s) close(s)
+  typedef int SOCKET;
+  typedef struct sockaddr_in SOCKADDR_IN;
+  typedef struct sockaddr SOCKADDR;
 #endif
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <signal.h>
 
 void cleanExit() { exit(0); }
+
+#define  PORT_NUM    6009    // Port number used at the server for send and receive file
+#define  TIMEOUT 2
 
 #define EXIT_SUCCESS    0
 #define EXIT_ERROR      1
@@ -28,8 +47,51 @@ void cleanExit() { exit(0); }
 
 #define EXIT_NOTIFICATION   "close\n"
 
+typedef struct //for send and receive a file
+{
+    int socket;
+    struct sockaddr *addr;
+    socklen_t addr_len;
+} transport_info_t;
+
+//----- Prototypes ------------------------------------------------------------
+int sendFile(char *fileName, char *destIpAddr, int destPortNum, int timeout); //for send and receive a file
+
 int main() {
-  Chat();
+  //Chat();
+  TransferFile();
+}
+
+int TransferFile(int argc, char *argv[]){
+  char                 sendFileName[256];   // Send file name
+  char                 recv_ipAddr[16];     // Reciver IP address
+  int                  recv_port;           // Receiver port number
+  int                  timeout;             // Options
+  int                  retcode;             // Return code
+
+  // Usage and parsing command line arguments
+  if (argc != 4)
+  {
+   printf("to launch the program, first write as the following: 'nameOfProject.exe fileNameToBeSent.txt IpAddress 6009'\n");
+    return(0);
+  }
+  strcpy(sendFileName, argv[1]);
+  strcpy(recv_ipAddr, argv[2]);
+  recv_port = atoi(argv[3]);
+
+  // Initialize parameters
+  timeout = TIMEOUT;
+
+  // Send the file
+  printf("Starting file transfer... \n");
+  retcode = sendFile(sendFileName, recv_ipAddr, recv_port, timeout);
+  if (retcode)
+      return -1;
+
+  printf("File transfer is complete \n");
+
+  // Return
+  return(0);
 }
 
 int Chat(){
@@ -136,3 +198,138 @@ const char *inet_ntop(int af, const void *src, char *dst, socklen_t size) {
            dst : NULL;
 }
 #endif
+
+static int wait_for_data_timeout(int timeout, void *ctx)
+{
+    int socket = *(int *)ctx;
+    fd_set fds;
+    struct timeval tv;
+
+    FD_ZERO(&fds);
+    FD_SET(socket, &fds);
+
+    tv.tv_sec = timeout;
+    tv.tv_usec = 0;
+
+    return select(socket + 1, &fds, NULL, NULL, &tv);
+}
+
+static int send_data(void *data, int data_len, void *ctx)
+{
+    int ret_code;
+    transport_info_t *transport = (transport_info_t *)ctx;
+
+    ret_code = sendto(transport->socket, data, data_len, 0, transport->addr,
+	transport->addr_len);
+
+    return ret_code;
+}
+
+static int read_data_from_file(void *buffer, int buffer_size, void *ctx)
+{
+    int length, fd = *(int *)ctx;
+
+    length = read(fd, buffer, buffer_size);
+
+    return length;
+}
+
+static int receive_data(void *buffer, int buffer_size, void *ctx)
+{
+    int length;
+    transport_info_t *transport = (transport_info_t *)ctx;
+
+    length = recvfrom(transport->socket, buffer, buffer_size, 0, NULL, NULL);
+
+    return length;
+}
+
+
+int sendFile(char *fileName, char *destIpAddr, int destPortNum, int timeout)
+{
+#ifdef _WIN
+  WORD wVersionRequested = MAKEWORD(1,1);       // Stuff for WSA functions
+  WSADATA wsaData;                              // Stuff for WSA functions
+#endif
+  int                  client_s;        // Client socket descriptor
+  struct sockaddr_in   server_addr;     // Server Internet address
+  int                  fh;              // File handle
+  int                  retcode;         // Return code
+  transport_info_t transport = {};
+
+#ifdef _WIN
+  // This stuff initializes winsock
+  WSAStartup(wVersionRequested, &wsaData);
+#endif
+
+  // Create a client socket
+  client_s = socket(AF_INET, SOCK_DGRAM, 0);
+  if (client_s < 0)
+  {
+    printf("*** ERROR - socket() failed \n");
+    exit(-1);
+  }
+
+  // Fill-in the server's address information and do a connect
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = htons(destPortNum);
+  server_addr.sin_addr.s_addr = inet_addr(destIpAddr);
+
+  transport.addr = (struct sockaddr *)&server_addr;
+  transport.addr_len = sizeof(server_addr);
+  transport.socket = client_s;
+
+  // Open file to send
+  #ifdef _WIN
+    fh = open(fileName, O_RDONLY | O_BINARY, S_IREAD | S_IWRITE);
+  #else
+    fh = open(fileName, O_RDONLY, S_IREAD | S_IWRITE);
+  #endif
+  if (fh == -1)
+  {
+     printf("  *** ERROR - unable to open '%p' \n", sendFile);
+     exit(1);
+  }
+  //use several functions froms header of sw
+  sw_ctx_t *sw_ctx = sw_init(timeout);
+  sw_set_cb(sw_ctx, SW_SEND_CB, send_data, &transport);
+  sw_set_cb(sw_ctx, SW_RECV_CB, receive_data, &transport);
+  sw_set_cb(sw_ctx, SW_READ_DATA_CB, read_data_from_file, &fh);
+  sw_set_cb(sw_ctx, SW_TIMEOUT_CB, wait_for_data_timeout, &client_s);
+
+  retcode = sw_send_file(sw_ctx);
+  if (retcode)
+  {
+      printf("*** ERROR - file send failed \n");
+      exit(-1);
+  }
+
+  sw_deinit(sw_ctx);
+  // Close the file that was sent to the receiver
+  close(fh);
+
+  // Close the client socket
+#ifdef _WIN
+  retcode = closesocket(client_s);
+  if (retcode < 0)
+  {
+    printf("*** ERROR - closesocket() failed \n");
+    exit(-1);
+  }
+#else
+  retcode = close(client_s);
+  if (retcode < 0)
+  {
+    printf("*** ERROR - close() failed \n");
+    exit(-1);
+  }
+#endif
+
+#ifdef _WIN
+  // Clean-up winsock
+  WSACleanup();
+#endif
+
+  // Return zero
+  return(0);
+}
