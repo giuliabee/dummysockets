@@ -1,11 +1,20 @@
-#if defined (WIN32)
+#define  WIN
+#ifdef _WIN32
+    #include <windows.h>      // Needed for all Winsock stuff
+    #include <io.h>           // Needed for open(), close(), and eof()
+    #include <sys\stat.h>     // Needed for file i/o constants
     #include <winsock2.h>
     #include <ws2tcpip.h>
     typedef int socklen_t;
-#elif defined (linux)
+#else
     #include <sys/types.h>
     #include <sys/socket.h>
     #include <arpa/inet.h>
+    #include <netinet/in.h>   // Needed for sockets stuff
+    #include <netdb.h>        // Needed for sockets stuff
+    #include <sys/io.h>       // Needed for open(), close(), and eof()
+    #include <sys/stat.h>     // Needed for file i/o constants
+    #include <resolv.h>
     #define closesocket(s) close(s)
     typedef int SOCKET;
     typedef struct sockaddr_in SOCKADDR_IN;
@@ -16,8 +25,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+#include <fcntl.h>          // Needed for file i/o constants
+#include <ctype.h>
 
 void cleanExit() { exit(0); }
+
+#define  PORT_NUM    6069   // Port number used at the server
+#define  SIZE        256    // Buffer size
 
 #define EXIT_SUCCESS    0
 #define EXIT_ERROR      1
@@ -28,119 +42,203 @@ void cleanExit() { exit(0); }
 
 #define EXIT_NOTIFICATION   "close\n"
 
+int sendFile(char *fileName, char *destIpAddr, int destPortNum, int options);
+
 int main() {
-    int sock, err, bytes, len;
-    char msg[BUFFER_SIZE];
-
-    struct sockaddr_in dest_addr;
-
-    signal(SIGTERM, cleanExit);
-    signal(SIGINT, cleanExit);
-
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        perror("Unable to create socket");
-        return EXIT_ERROR;
-    }
-
-    /* initialize address */
-    memset((void *) &dest_addr, 0, sizeof(dest_addr));    /* clear server address */
-    dest_addr.sin_family = AF_INET;                       /* address type is INET */
-    dest_addr.sin_port = htons(SERVER_PORT);
-
-    /* Convert the address from strin gform to binary form */
-    err = inet_pton(AF_INET, SERVER_ADDRESS, &dest_addr.sin_addr);
-    if (err <= 0) {
-        perror("Address creation error");
-        return EXIT_ERROR;
-    }
-
-    err = connect(sock, (struct sockaddr *) &dest_addr, sizeof(dest_addr));
-    if (err < 0) {
-        perror("Error connecting to the server");
-        return EXIT_ERROR;
-    }
-
-    /* We are now connected */
-    while (-1) {
-        printf("Enter message: \n");
-
-        fgets(msg, BUFFER_SIZE, stdin);
-
-        len = strlen(msg);
-
-        bytes = send(sock, msg, len, 0);
-
-        if (bytes < 0) {
-            perror("Failed to send");
-            return EXIT_ERROR;
-        }
-
-        printf("Sent %d bytes\n", bytes);
-
-        bytes = recv(sock, msg, BUFFER_SIZE, 0);
-
-        if (bytes < 0) {
-            perror("Failed to receive");
-            return EXIT_ERROR;
-        }
-
-        printf("Received %d bytes: %s", bytes, msg);
-
-        err = strcmp(msg, EXIT_NOTIFICATION);
-
-        if (err == 0) {
-            printf("Server closed tcp socket\n");
-            return EXIT_SUCCESS;
-        }
-    }
+//Chat();
+TransferFile();
 }
 
-#if defined (WIN32)
-//from https://stackoverflow.com/questions/15660203/inet-pton-identifier-not-found
-int inet_pton(int af, const char *src, void *dst) {
-    struct sockaddr_storage ss;
-    int size = sizeof(ss);
-    char src_copy[INET6_ADDRSTRLEN + 1];
+int TransferFile(int argc, char *argv[]){
+  char                 sendFileName[256];   // Send file name
+  char                 recv_ipAddr[16];     // Reciver IP address
+  int                  recv_port;           // Receiver port number
+  int                  options;             // Options
+  int                  retcode;             // Return code
 
-    ZeroMemory(&ss, sizeof(ss));
-    /* stupid non-const API */
-    strncpy(src_copy, src, INET6_ADDRSTRLEN + 1);
-    src_copy[INET6_ADDRSTRLEN] = 0;
+  // Usage and parsing command line arguments
+  if (argc != 4)
+  {
+    printf("to launch the program, first write as the following: 'nameOfProject.exe fileNameToBeSent.txt IpAddress 6069'\n");
+    return(0);
+  }
+  strcpy(sendFileName, argv[1]);
+  strcpy(recv_ipAddr, argv[2]);
+  recv_port = atoi(argv[3]);
 
-    if (WSAStringToAddress(src_copy, af, NULL, (struct sockaddr *) &ss, &size) == 0) {
-        switch (af) {
-            case AF_INET:
-                *(struct in_addr *) dst = ((struct sockaddr_in *) &ss)->sin_addr;
-                return 1;
-            case AF_INET6:
-                *(struct in6_addr *) dst = ((struct sockaddr_in6 *) &ss)->sin6_addr;
-                return 1;
-        }
-    }
-    return 0;
+  // Initialize parameters
+  options = 0;     // This parameter is unused in this implementation
+
+  // Send the file
+  printf("Starting file transfer... \n");
+  retcode = sendFile(sendFileName, recv_ipAddr, recv_port, options);
+  printf("File transfer is complete \n");
+
+  // Return
+  return(0);
 }
 
+int Chat(){
+  int sock, err, bytes, len;
+  char msg[BUFFER_SIZE];
 
-const char *inet_ntop(int af, const void *src, char *dst, socklen_t size) {
-    struct sockaddr_storage ss;
-    unsigned long s = size;
+  struct sockaddr_in dest_addr;
 
-    ZeroMemory(&ss, sizeof(ss));
-    ss.ss_family = af;
+  signal(SIGTERM, cleanExit);
+  signal(SIGINT, cleanExit);
 
-    switch (af) {
-        case AF_INET:
-            ((struct sockaddr_in *) &ss)->sin_addr = *(struct in_addr *) src;
-            break;
-        case AF_INET6:
-            ((struct sockaddr_in6 *) &ss)->sin6_addr = *(struct in6_addr *) src;
-            break;
-        default:
-            return NULL;
-    }
-    /* cannot directly use &size because of strict aliasing rules */
-    return (WSAAddressToString((struct sockaddr *) &ss, sizeof(ss), NULL, dst, &s) == 0) ?
-           dst : NULL;
+  sock = socket(AF_INET, SOCK_STREAM, 0);
+  if (sock < 0) {
+      perror("Unable to create socket");
+      return EXIT_ERROR;
+  }
+
+  /* initialize address */
+  memset((void *) &dest_addr, 0, sizeof(dest_addr));    /* clear server address */
+  dest_addr.sin_family = AF_INET;                       /* address type is INET */
+  dest_addr.sin_port = htons(SERVER_PORT);
+
+  /* Convert the address from strin gform to binary form */
+  err = inet_pton(AF_INET, SERVER_ADDRESS, &dest_addr.sin_addr);
+  if (err <= 0) {
+      perror("Address creation error");
+      return EXIT_ERROR;
+  }
+
+  err = connect(sock, (struct sockaddr *) &dest_addr, sizeof(dest_addr));
+  if (err < 0) {
+      perror("Error connecting to the server");
+      return EXIT_ERROR;
+  }
+
+  /* We are now connected */
+  while (-1) {
+      printf("Enter message: \n");
+
+      fgets(msg, BUFFER_SIZE, stdin);
+
+      len = strlen(msg);
+
+      bytes = send(sock, msg, len, 0);
+
+      if (bytes < 0) {
+          perror("Failed to send");
+          return EXIT_ERROR;
+      }
+
+      printf("Sent %d bytes\n", bytes);
+
+      bytes = recv(sock, msg, BUFFER_SIZE, 0);
+
+      if (bytes < 0) {
+          perror("Failed to receive");
+          return EXIT_ERROR;
+      }
+
+      printf("Received %d bytes: %s", bytes, msg);
+
+      err = strcmp(msg, EXIT_NOTIFICATION);
+
+      if (err == 0) {
+          printf("Server closed tcp socket\n");
+          return EXIT_SUCCESS;
+      }
+  }
 }
+
+int sendFile(char *fileName, char *destIpAddr, int destPortNum, int options)
+{
+  //printf("Entree dans la boucle sendfile");
+#ifdef _WIN32
+  WORD wVersionRequested = MAKEWORD(1,1);       // Stuff for WSA functions
+  WSADATA wsaData;                              // Stuff for WSA functions
 #endif
+  int                  client_s;        // Client socket descriptor
+  struct sockaddr_in   server_addr;     // Server Internet address
+  char                 out_buf[4096];   // Output buffer for data
+  int                  fh;              // File handle
+  int                  length;          // Length of send buffer
+  int                  retcode;         // Return code
+
+#ifdef _WIN32
+  // This stuff initializes winsock
+  WSAStartup(wVersionRequested, &wsaData);
+#endif
+
+  // Create a client socket
+  client_s = socket(AF_INET, SOCK_STREAM, 0);
+  if (client_s < 0)
+  {
+    printf("*** ERROR - socket() failed \n");
+    exit(-1);
+  }
+  //printf("creation socket");
+  // Fill-in the server's address information and do a connect
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = htons(destPortNum);
+  server_addr.sin_addr.s_addr = inet_addr(destIpAddr);
+  retcode = connect(client_s, (struct sockaddr *)&server_addr,
+    sizeof(server_addr));
+  if (retcode < 0)
+  {
+    printf("*** ERROR - connect() failed \n");
+    exit(-1);
+  }
+  //printf("realisation de la connextion");
+  // Open file to send
+#ifdef _WIN32
+    fh = open(fileName, O_RDONLY | O_BINARY, S_IREAD | S_IWRITE);
+
+  #else
+    fh = open(fileName, O_RDONLY, S_IREAD | S_IWRITE);
+  #endif
+  if (fh == -1)
+  {
+     printf("  *** ERROR - unable to open '%p' \n", sendFile);
+     exit(1);
+  }
+  //printf("ouverture fichier et ecriture");
+  // Read and send the file to the receiver
+  do
+  {
+    length = read(fh, out_buf, SIZE);
+    if (length > 0)
+    {
+      retcode = send(client_s, out_buf, length, 0);
+      if (retcode < 0)
+      {
+        printf("*** ERROR - recv() failed \n");
+        exit(-1);
+      }
+    }
+  } while (length > 0);
+
+  // Close the file that was sent to the receiver
+  close(fh);
+
+  // Close the client socket
+#ifdef _WIN32
+  retcode = closesocket(client_s);
+  if (retcode < 0)
+  {
+    printf("*** ERROR - closesocket() failed \n");
+    exit(-1);
+  }
+
+#else
+  retcode = close(client_s);
+  if (retcode < 0)
+  {
+    printf("*** ERROR - close() failed \n");
+    exit(-1);
+  }
+#endif
+  //printf("envoi du doc");
+#ifdef _WIN32
+  // Clean-up winsock
+  WSACleanup();
+#endif
+
+  // Return zero
+  return(0);
+}

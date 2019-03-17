@@ -29,59 +29,63 @@ void cleanExit() { exit(0); }
 #define EXIT_NOTIFICATION   "close\n"
 
 int main() {
-    int sock, err, i, bytes, len;
-    char msg[BUFFER_SIZE];
+  Chat();
+}
 
-    struct sockaddr_in dest_addr;
+int Chat(){
+  int sock, err, i, bytes, len;
+  char msg[BUFFER_SIZE];
 
-    signal(SIGTERM, cleanExit);
-    signal(SIGINT, cleanExit);
+  struct sockaddr_in dest_addr;
 
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-        perror("Unable to create socket");
-        return EXIT_ERROR;
-    }
+  signal(SIGTERM, cleanExit);
+  signal(SIGINT, cleanExit);
 
-    /* initialize address */
-    memset((void *) &dest_addr, 0, sizeof(dest_addr));    /* clear server address */
-    dest_addr.sin_family = AF_INET;                       /* address type is INET */
-    dest_addr.sin_port = htons(SERVER_PORT);
+  sock = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sock < 0) {
+      perror("Unable to create socket");
+      return EXIT_ERROR;
+  }
 
-    /* Convert the address from strin gform to binary form */
-    err = inet_pton(AF_INET, SERVER_ADDRESS, &dest_addr.sin_addr);
-    if (err <= 0) {
-        perror("Address creation error");
-        return EXIT_ERROR;
-    }
+  /* initialize address */
+  memset((void *) &dest_addr, 0, sizeof(dest_addr));    /* clear server address */
+  dest_addr.sin_family = AF_INET;                       /* address type is INET */
+  dest_addr.sin_port = htons(SERVER_PORT);
 
-    while (-1) {
-        printf("Enter message: \n");
+  /* Convert the address from strin gform to binary form */
+  err = inet_pton(AF_INET, SERVER_ADDRESS, &dest_addr.sin_addr);
+  if (err <= 0) {
+      perror("Address creation error");
+      return EXIT_ERROR;
+  }
 
-        fgets(msg, BUFFER_SIZE, stdin);
+  while (-1) {
+      printf("Enter message: \n");
 
-        len = strlen(msg);
+      fgets(msg, BUFFER_SIZE, stdin);
 
-        sendto(sock, &msg, len, 0, (struct sockaddr *) &dest_addr, sizeof(struct sockaddr_in));
+      len = strlen(msg);
 
-        printf("Sent %d bytes\n", len);
+      sendto(sock, &msg, len, 0, (struct sockaddr *) &dest_addr, sizeof(struct sockaddr_in));
 
-        bytes = recv(sock, msg, BUFFER_SIZE, 0);
+      printf("Sent %d bytes\n", len);
 
-        if (bytes < 0) {
-            perror("Failed to receive");
-            return EXIT_ERROR;
-        }
+      bytes = recv(sock, msg, BUFFER_SIZE, 0);
 
-        printf("Received %d bytes: %s", bytes, msg);
+      if (bytes < 0) {
+          perror("Failed to receive");
+          return EXIT_ERROR;
+      }
 
-        err = strcmp(msg, EXIT_NOTIFICATION);
+      printf("Received %d bytes: %s", bytes, msg);
 
-        if (err == 0) {
-            printf("Server closed udp socket\n");
-            return EXIT_SUCCESS;
-        }
-    }
+      err = strcmp(msg, EXIT_NOTIFICATION);
+
+      if (err == 0) {
+          printf("Server closed udp socket\n");
+          return EXIT_SUCCESS;
+      }
+  }
 }
 
 #if defined (WIN32)
