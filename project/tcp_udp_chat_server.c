@@ -54,7 +54,7 @@ typedef struct//For UDP Send file
 } transport_info_t;
 
 
-
+int Chat();
 void *serve_udp_client(void *req) {
     int sock, err;
     size_t len;
@@ -146,11 +146,14 @@ void *serve_tcp_client(void *client_sock) {
         }
     }
 }
-
-int main() {
-//Chat();
+int ReceivingfileUDP();
+int ReceivingfileTCP();
+int main(char *fileName, int portNum, int maxSize, int options) {
+  //gcc sw.o tcp_udp_chat_server -o server -lpthread
+  //./server
+Chat();
 //ReceivingfileTCP();
-ReceivingfileUDP();
+//ReceivingfileUDP();
 }
 
 int Chat(){
@@ -158,9 +161,9 @@ int Chat(){
 
   struct sockaddr_in server_addr, client_addr;
 
-  pid_t child;
+  pid_t child;//needed for forl
 
-  child = fork();
+  child = fork();//needed to get all the variable in double for each new element (process) used to listen to a communication type
 
 
   if (child == 0) {
@@ -257,13 +260,13 @@ int Chat(){
 
           printf("Serving new tcp client\n");
 
-          pthread_create(&thread, NULL, serve_tcp_client, (void *) client_sock);
+          pthread_create(&thread, NULL, serve_tcp_client, (void*)client_sock);
       }
 
   }
 }
 
-int recvFile(char *fileName, int portNum, int maxSize, int options);
+int recvFile(char *fileName, int portNum, int maxSize, int options);//for TCP part
 
 int ReceivingfileTCP(){
   int                  portNum;         // Port number to receive on

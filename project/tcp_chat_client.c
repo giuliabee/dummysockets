@@ -43,10 +43,14 @@ void cleanExit() { exit(0); }
 #define EXIT_NOTIFICATION   "close\n"
 
 int sendFile(char *fileName, char *destIpAddr, int destPortNum, int options);
+int TransferFile(int argc, char *argv[]);
+int Chat();
 
-int main() {
-//Chat();
-//TransferFile();
+int main(int argc, char *argv[]) {
+  //gcc tcp_chat_client -o client_tcp
+  //./client_tcp
+Chat();
+//TransferFile(argc,argv);
 }
 
 void ListCommandLines(){
@@ -268,6 +272,8 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum, int options)
   do
   {
     length = read(fh, out_buf, SIZE);
+
+
     if (length > 0)
     {
       retcode = send(client_s, out_buf, length, 0);
@@ -280,7 +286,11 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum, int options)
   } while (length > 0);
 
   // Close the file that was sent to the receiver
+  #ifdef _WIN32
   close(fh);
+  #else
+  close(fh);
+  #endif
 
   // Close the client socket
 #ifdef _WIN32

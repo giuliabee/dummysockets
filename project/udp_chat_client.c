@@ -68,11 +68,18 @@ typedef struct //for send and receive a file
 } transport_info_t;
 
 //----- Prototypes ------------------------------------------------------------
+int TransferFile(int argc, char *argv[]);
+
+int Chat();
+
 int sendFile(char *fileName, char *destIpAddr, int destPortNum, int timeout); //for send and receive a file
 
-int main() {
+int main(int argc, char *argv[]) {
+  //gcc sw.o udp_chat_client.c -o client-udp_chat_client
+  //./client_udp
+  //printf("hey i m here");
   //Chat();
-  TransferFile();
+  TransferFile(argc, argv);
 }
 
 int TransferFile(int argc, char *argv[]){
@@ -81,7 +88,7 @@ int TransferFile(int argc, char *argv[]){
   int                  recv_port;           // Receiver port number
   int                  timeout;             // Options
   int                  retcode;             // Return code
-
+//printf("in the transferfile function");
   // Usage and parsing command line arguments
   if (argc != 4)
   {
